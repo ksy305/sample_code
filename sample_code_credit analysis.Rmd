@@ -1,0 +1,452 @@
+---
+title: "Team Project"
+team members: Jiaqi Ruan, Ke Wu, Zhengqi Zhang
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  html_notebook:
+    number_sections: yes
+    toc: yes
+  word_document:
+    toc: yes
+---
+
+# Intro
+```{r}
+rm(list = ls())     # clear the workspace 
+library(ISLR)       
+library(tidyverse)
+library(ggplot2)
+```
+
+# Data Preparation
+Examine the dataset. It contains four variables, `LIMIT_BAL`, `SEX`,`EDUCATION`, and `MARRIAGE`, etc. 
+```{r}
+data <- read.csv("UCI_Credit_Card.csv")
+credit = subset(data, select = c("LIMIT_BAL", "SEX", "EDUCATION", "MARRIAGE", "AGE", "PAY_0",
+                                 "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6",
+                                 "BILL_AMT1", "BILL_AMT2", "BILL_AMT3",
+                                 "BILL_AMT4", "BILL_AMT5", "BILL_AMT6",
+                                 "PAY_AMT1", "PAY_AMT2", "PAY_AMT3","PAY_AMT4",
+                                 "PAY_AMT5", "PAY_AMT6", "default.payment.next.month"))
+#Inspect the data frame
+library(dplyr)
+credit <- credit %>% rename("DEFAULT" = "default.payment.next.month")
+
+```
+
+```{r}
+# Missing Values & Duplicates Inspection
+sum(is.na(credit))
+
+duplicates <- credit%>%duplicated()
+duplicates_amount <- duplicates%>%(table)
+duplicates_amount
+```
+
+```{r}
+# Remove Duplicates
+credit <- credit%>%distinct()
+# Displays how many duplicates are present in the updated data frame.
+duplicates_counts <- credit%>%duplicated()%>%table()
+duplicates_counts
+
+```
+
+
+
+
+
+```{r}
+# Restructure DataFrame
+credit$SEX[credit$SEX %in% "1"] = "Male"
+credit$SEX[credit$SEX %in% "2"] = "Female"
+
+credit$EDUCATION[credit$EDUCATION %in% "0"] = "Unknown"
+credit$EDUCATION[credit$EDUCATION %in% "1"] = "Grad School"
+credit$EDUCATION[credit$EDUCATION %in% "2"] = "College"
+credit$EDUCATION[credit$EDUCATION %in% "3"] = "High School"
+credit$EDUCATION[credit$EDUCATION %in% "4"] = "Other"
+credit$EDUCATION[credit$EDUCATION %in% "5"] = "Unknown"
+credit$EDUCATION[credit$EDUCATION %in% "6"] = "Unknown"
+
+credit$MARRIAGE[credit$MARRIAGE %in% "0"] = "Unknown"
+credit$MARRIAGE[credit$MARRIAGE %in% "1"] = "Married"
+credit$MARRIAGE[credit$MARRIAGE %in% "2"] = "Single"
+credit$MARRIAGE[credit$MARRIAGE %in% "3"] = "Other"
+
+credit$DEFAULT[credit$DEFAULT %in% "0"] = "No"
+credit$DEFAULT[credit$DEFAULT %in% "1"] = "Yes"
+
+head(credit)
+```
+
+# Data Visualization
+# Bar Chart of SEX, EDUCATION, MARRIAGE
+```{r}
+credit %>%
+  ggplot(aes(x = SEX , fill = DEFAULT)) +
+  geom_bar()
+
+credit %>%
+  ggplot(aes(x = EDUCATION, fill = DEFAULT)) +
+  geom_bar()
+
+credit %>%
+  ggplot(aes(x = MARRIAGE, fill = DEFAULT)) +
+  geom_bar()
+```
+## Histogram of AGE
+```{r}
+credit %>%
+  ggplot(aes(x = AGE)) + 
+  geom_histogram(aes(y = ..density..), fill = "Blue", col = "Grey", binwidth = 5) + 
+  geom_density(alpha = 0.2, color = "black", fill = "blue")
+```
+## Histogram of PAY
+```{r}
+credit %>%
+  ggplot(aes(x = PAY_0)) + 
+  geom_histogram(aes(fill = DEFAULT), col = "Grey", binwidth = 1)
+credit %>%
+  ggplot(aes(x = PAY_2)) + 
+  geom_histogram(aes(fill = DEFAULT), col = "Grey", binwidth = 1)
+credit %>%
+  ggplot(aes(x = PAY_3)) + 
+  geom_histogram(aes(fill = DEFAULT), col = "Grey", binwidth = 1)
+credit %>%
+  ggplot(aes(x = PAY_4)) + 
+  geom_histogram(aes(fill = DEFAULT), col = "Grey", binwidth = 1)
+credit %>%
+  ggplot(aes(x = PAY_5)) + 
+  geom_histogram(aes(fill = DEFAULT), col = "Grey", binwidth = 1)
+credit %>%
+  ggplot(aes(x = PAY_6)) + 
+  geom_histogram(aes(fill = DEFAULT), col = "Grey", binwidth = 1)
+```
+
+## Boxplots
+```{r}
+ggplot(credit,aes(x=DEFAULT,y=AGE,fill=DEFAULT))+geom_boxplot()
+ggplot(credit,aes(x=DEFAULT,y=AGE,fill=EDUCATION))+geom_boxplot()
+ggplot(credit,aes(x=DEFAULT,y=AGE,fill=MARRIAGE))+geom_boxplot()
+
+ggplot(credit,aes(x=SEX,y=LIMIT_BAL,fill=DEFAULT))+geom_boxplot()
+ggplot(credit,aes(x=EDUCATION,y=LIMIT_BAL,fill=DEFAULT))+geom_boxplot()
+ggplot(credit,aes(x=MARRIAGE,y=LIMIT_BAL,fill=DEFAULT))+geom_boxplot()
+```
+## Features
+```{r}
+#Feature 1
+#Gold customer is less likely to default
+max(credit$LIMIT_BAL)
+min(credit$LIMIT_BAL)
+mean(credit$LIMIT_BAL)
+cut_points <- c(10000, 200000, 500000, 100000)
+labels <- c("bronze", "silver", "gold")
+credit$cust_cat <- cut(credit$LIMIT_BAL, breaks = cut_points, labels = labels)
+
+credit %>%
+  ggplot(aes(x = cust_cat, fill = DEFAULT)) +
+  geom_bar()
+```
+
+
+```{r}
+#Feature 2
+cut_points <- c(21, 40, 60, 81)
+labels <- c("young", "middle", "senior")
+credit$age_group <- cut(credit$AGE, breaks = cut_points, labels = labels)
+
+credit %>%
+  ggplot(aes(x = age_group, fill = DEFAULT)) +
+  geom_bar()
+```
+```{r}
+#Feature3
+#The new column means the total number of payments done or missed.
+credit$pay_total = (credit$PAY_0 + credit$PAY_2 + credit$PAY_3+ credit$PAY_4+ credit$PAY_5+ credit$PAY_6)
+mean(credit$pay_total)
+#Observations 
+
+#1. Id's with score above -2 shows that the customers have always paid on time.
+#2. Id's with positive values shows the number of payment default month by customer. 
+#3. Customers have duly paid over a year are good customers.
+
+cut_points <- c(-20, -10, 0, 10)
+labels <- c("low", "medium", "high")
+credit$risk_cat <- cut(credit$pay_total, breaks = cut_points, labels = labels)
+
+credit %>%
+  ggplot(aes(x = risk_cat, fill = DEFAULT)) +
+  geom_bar()
+```
+
+
+
+```{r}
+#Feature 4
+library(ggExtra)
+scatter_plot_age = credit %>%
+  ggplot(aes(x = AGE, y = pay_total, color = pay_total)) +
+  geom_point() + 
+  labs(x = "Age", y = "Pay_total", title = "Scatter Plot") +
+  scale_color_gradient(low = "salmon", high = "cyan")
+ggMarginal(scatter_plot_age, type = "histogram", fill = "#D2E5D0", col = "#D2E5D0")
+#We can clearly see that payment default are being done more by age group of 21 to 55.
+```
+
+```{r}
+#Feature 5
+scatter_plot_education = credit %>%
+  ggplot(aes(x = EDUCATION, y = pay_total, color = pay_total)) +
+  geom_point() + 
+  labs(x = "education", y = "Pay_total", title = "Scatter Plot") +
+  scale_color_gradient(low = "salmon", high = "cyan")
+ggMarginal(scatter_plot_education, type = "histogram", fill = "#D2E5D0", col = "#D2E5D0")
+#We can clearly see that payment default are being done more by 
+```
+```{r}
+# Feature 6
+credit %>% ggplot(aes(x = EDUCATION, y = pay_total, fill = risk_cat)) +
+  geom_boxplot() +
+  labs(x = "Education", y = "Pay_total", title = "Box Plot") +
+  theme(legend.position = "top") +
+  guides(fill = guide_legend(title = "Risk Category"))
+
+```
+
+```{r}
+#Feature 7
+credit %>% ggplot(aes(x = age_group, y = pay_total, fill = risk_cat)) +
+  geom_violin() +
+  labs(x = "Age Group", y = "Pay_total", title = "Violin Plot") +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  guides(fill = guide_legend(title = "Risk Category"))
+
+```
+```{r}
+# Feature 8
+library(ggcorrplot)
+part_of_credit = credit[, c('SEX', 'MARRIAGE', 'EDUCATION', 'age_group', 'pay_total', 'risk_cat')]
+model.matrix(~0+., data=part_of_credit) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  ggcorrplot(show.diag=FALSE, type="lower", lab=TRUE, lab_size=2) +
+  theme(axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+```
+
+```{r}
+credit = subset(credit, select = c("LIMIT_BAL", "SEX", "EDUCATION", "MARRIAGE", "AGE", "PAY_0",
+                                 "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6",
+                                 "BILL_AMT1", "BILL_AMT2", "BILL_AMT3",
+                                 "BILL_AMT4", "BILL_AMT5", "BILL_AMT6",
+                                 "PAY_AMT1", "PAY_AMT2", "PAY_AMT3","PAY_AMT4",
+                                 "PAY_AMT5", "PAY_AMT6", "DEFAULT"))
+```
+
+
+
+## Resample
+```{r}
+#Through descriptive results, we found our dataset is imbalanced. we need to oversample by adding more weight to default.
+credit_model = credit[sample(1:nrow(credit),30000,prob = ifelse(credit$DEFAULT == 'Yes', 0.8,0.2),replace = TRUE),]
+table(credit_model$DEFAULT)
+```
+
+## Modeling
+```{r}
+# Training Datasets & Test Datasets
+set.seed(66)
+# The data is split with 75% in training and 25% in testing.
+sample <- sample(c(TRUE, FALSE), nrow(credit_model), replace = TRUE, prob = c(0.75, 0.25))
+train_set <- credit_model[sample, ]
+test_set <- credit_model[!sample, ]
+```
+
+
+## Classification Trees
+## Classification Trees: Model
+```{r}
+library(rpart)
+library(rpart.plot)
+library(caret)
+```
+
+```{r}
+credit_ct<-rpart(DEFAULT ~ .,  
+                data=train_set,                            
+                method="class",                           
+                control=rpart.control(cp=0,maxdepth = 6))   
+```
+
+```{r}
+printcp(credit_ct)
+```
+
+```{r}
+min_xerror_tree<-credit_ct$cptable[which.min(credit_ct$cptable[,"xerror"]),]
+# prune tree with minimum cp value
+min_xerror_tree<-prune(credit_ct,cp=min_xerror_tree[1])
+rpart.plot(min_xerror_tree)
+print(min_xerror_tree)
+min_xerror_tree$variable.importance
+```
+
+```{r}
+pred_ct_class<-predict(credit_ct,test_set,type="class") 
+head(pred_ct_class)
+
+pred_ct<-predict(credit_ct,test_set)  
+head(pred_ct)
+
+pred_ct_prob<-predict(credit_ct,test_set, type = 'prob')[,2]
+
+confusion_matrix_ct <- table(pred_ct_class,test_set$DEFAULT, dnn=c("predicted","actual"))
+print(confusion_matrix_ct)
+## false positive rate = FP/(FP+TN) = 983/(983+2915) = 28.06%
+## false negative rate = FN/(TP+FN) = 1153/(1153+2723) = 29.74%
+
+accuracy_ct <- sum(diag(confusion_matrix_ct))/sum(confusion_matrix_ct)
+accuracy_ct
+```
+
+## Cross-validation
+```{r}
+library(caret)
+control <- trainControl(method = "cv", number = 10)
+# Train the model using cross-validation
+credit_cv <- train(DEFAULT ~ ., data = credit_model, method = "rpart", trControl = control)
+print(credit_cv$results)
+print(credit_cv$finalModel)
+rpart.plot(credit_cv$finalModel)
+
+pred_cv_class<-predict(credit_cv,test_set,type="raw") 
+head(pred_cv_class)
+
+pred_cv<-predict(credit_cv,test_set)  
+head(pred_cv)
+
+pred_cv_prob<- predict(credit_cv,test_set,type = 'prob')[,2]
+
+confusion_matrix_cv <- table(pred_cv_class,test_set$DEFAULT, dnn=c("predicted","actual"))
+print(confusion_matrix_cv)
+## false positive rate = FP/(FP+TN) = 855/(855+2647) = 24.41%
+## false negative rate = FN/(TP+FN) = 1315/(1315+2561) = 33.92%
+
+accuracy_cv <- sum(diag(confusion_matrix_cv))/sum(confusion_matrix_cv)
+accuracy_cv
+```
+
+
+## Random Forest
+## Random Forest: Model
+```{r}
+set.seed(66)
+library(randomForest)
+set.seed(123)
+credit_randomforest <- randomForest(factor(DEFAULT) ~., mtry = 5, data = train_set)
+credit_randomforest
+
+head(credit_randomforest$votes)    
+head(credit_randomforest$predicted) 
+```
+
+```{r}
+varImpPlot(credit_randomforest)
+```
+
+## Random Forest: Prediction
+```{r}
+pred_randomforest<-predict(credit_randomforest,test_set)
+pred_randomforest_prob<- predict(credit_randomforest,test_set,type = 'prob')[,2]
+confusion_matrix_randomforest <- table(pred_randomforest,test_set$DEFAULT, dnn=c("predicted","actual"))
+print(confusion_matrix_randomforest)
+## false positive rate = FP/(FP+TN) = 392/(392+3110) = 11.19%
+## false negative rate = FN/(TP+FN) = 259/(259+3617) = 6.68%
+
+accuracy_randomforest <- sum(diag(confusion_matrix_randomforest))/sum(confusion_matrix_randomforest)
+accuracy_randomforest
+```
+
+
+## Logistics Regression
+## Logistics Regression: Model
+```{r}
+train_set$DEFAULT = ifelse(train_set$DEFAULT =='Yes',1, 0)
+credit_glm <- glm(DEFAULT ~ ., data = train_set, family = binomial())
+summary(credit_glm)
+```
+
+## Logistics Regression: Prediction
+```{r}
+pred_glm_prob <- predict.glm(credit_glm, newdata = test_set, type = "response")
+head(pred_glm_prob)
+pred_glm <- ifelse(pred_glm_prob<0.5,0,1)
+confusion_matrix_glm <- table(pred_glm,test_set$DEFAULT,dnn=c("predicted","actual"))
+print(confusion_matrix_glm)
+## false positive rate = FP/(FP+TN) = 1406/(1406+2096) = 40.14%
+## false negative rate = FN/(TP+FN) = 1168/(1168+2708) = 30.13%
+
+accuracy_glm <- sum(diag(confusion_matrix_glm))/sum(confusion_matrix_glm)
+accuracy_glm
+```
+
+
+## Support Vector Machine (SVM)
+```{r}
+library(e1071)
+credit_svm <- svm(formula = DEFAULT ~ ., 
+               data = train_set,                   
+               kernel = "linear",  
+               cost = 0.1)       
+credit_svm
+```
+
+```{r}
+dv<-data.frame(credit_svm$decision.values)
+
+ggplot(dv,aes(x=X.)) +
+  geom_histogram(colour="black",fill="white")
+```
+
+```{r}
+pred_svm_prob <- predict(credit_svm,test_set,type="prob")
+head(pred_svm_prob)
+pred_svm <- ifelse(pred_svm_prob<0.5,0,1)
+confusion_matrix_svm <- table(pred_svm, test_set$DEFAULT,dnn=c("predicted","actual"))
+print(confusion_matrix_svm)
+## false positive rate = FP/(FP+TN) = 1188/(1188+2314) = 34.92%
+## false negative rate = FN/(TP+FN) = 1291/(1291+2585) = 33.30%
+
+accuracy_svm <- sum(diag(confusion_matrix_svm))/sum(confusion_matrix_svm)
+accuracy_svm
+```
+
+
+
+```{r}
+test_set$DEFAULT_value = ifelse(test_set$DEFAULT == 'Yes', 1,0)
+
+library(pROC)
+ct_roc<-roc(test_set$DEFAULT_value,pred_ct_prob,auc=TRUE)
+cv_roc<-roc(test_set$DEFAULT_value,pred_cv_prob,auc=TRUE)
+randomforest_roc<-roc(test_set$DEFAULT_value,pred_randomforest_prob,auc=TRUE)
+logit_roc<-roc(test_set$DEFAULT_value,pred_glm_prob,auc=TRUE)
+svm_roc<-roc(test_set$DEFAULT_value,pred_svm_prob,auc=TRUE)
+
+# Plot the ROC curves
+plot(ct_roc, print.auc = TRUE, legacy.axes = TRUE, print.auc.y = 0.9, xlab = "False Positive Rate", ylab = "True Positive Rate", col = "#FF771E")
+plot(cv_roc,print.auc=TRUE,print.auc.y=.7, col="#00C3F9",add=TRUE, lty = 2)
+plot(randomforest_roc, print.auc = TRUE, print.auc.y = 0.5, col = "#995491", add = TRUE, lty = 3)
+plot(logit_roc,print.auc=TRUE,print.auc.y=.3, col="#00766C",add=TRUE, lty = 4)
+plot(svm_roc,print.auc=TRUE,print.auc.y=.1, col="#BB3E3F",add=TRUE, lty = 5)
+
+legend("bottomright", legend = c("ct", "cv", "rf", "logit", "svm"), col = c("#FF771E", "#00C3F9", "#995491", "#00766C", "#BB3E3F"), lty = c(1, 2, 3, 4, 5))
+
+```
+```{r}
+
+```
